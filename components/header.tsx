@@ -30,7 +30,7 @@ export function Header({ user }: HeaderProps) {
   const [notifications] = useState([
     { id: 1, title: "File uploaded successfully", time: "2 min ago", unread: true },
     { id: 2, title: "Document conversion completed", time: "5 min ago", unread: true },
-    { id: 3, title: "Storage limit warning", time: "1 hour ago", unread: false },
+    { id: 3, title: "Storage optimization suggestion", time: "1 hour ago", unread: false },
   ])
 
   const unreadCount = notifications.filter((n) => n.unread).length
@@ -44,7 +44,7 @@ export function Header({ user }: HeaderProps) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
               placeholder="Search files and documents..."
-              className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -70,7 +70,7 @@ export function Header({ user }: HeaderProps) {
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500 hover:bg-red-500">
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-emerald-500 hover:bg-emerald-500">
                     {unreadCount}
                   </Badge>
                 )}
@@ -85,7 +85,7 @@ export function Header({ user }: HeaderProps) {
                     <span className={`text-sm ${notification.unread ? "font-medium" : "font-normal"}`}>
                       {notification.title}
                     </span>
-                    {notification.unread && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
+                    {notification.unread && <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>}
                   </div>
                   <span className="text-xs text-muted-foreground mt-1">{notification.time}</span>
                 </DropdownMenuItem>
@@ -101,7 +101,7 @@ export function Header({ user }: HeaderProps) {
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
                     {user.name
                       .split(" ")
                       .map((n) => n[0])

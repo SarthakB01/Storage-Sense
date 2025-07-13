@@ -8,9 +8,8 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "FileVault - Modern File Storage & Conversion",
-  description: "Beautiful file storage and document conversion platform",
-    generator: 'v0.dev'
+  title: "Storage Sense - Smart File Storage & Conversion",
+  description: "Intelligent file storage and document conversion platform with advanced preview capabilities",
 }
 
 export default function RootLayout({

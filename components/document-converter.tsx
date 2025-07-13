@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { FileText, Download, RefreshCw, CheckCircle, AlertCircle } from "lucide-react"
+import { Download, RefreshCw, CheckCircle, AlertCircle, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -20,12 +20,14 @@ interface ConversionJob {
   status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"
   error?: string
   createdAt: string
+  resultFileName?: string
 }
 
 interface FileItem {
   id: string
   originalName: string
   mimeType: string
+  size: number
 }
 
 export function DocumentConverter() {
@@ -35,6 +37,7 @@ export function DocumentConverter() {
   const [targetFormat, setTargetFormat] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("convert")
+  const [pollingJobs, setPollingJobs] = useState<Set<string>>(new Set())
   const { toast } = useToast()
   const { apiCall } = useApi()
   const { token } = useAuth()
@@ -43,6 +46,20 @@ export function DocumentConverter() {
     loadFiles()
     loadJobs()
   }, [])
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    return () => {
+      pollingJobs.forEach((jobId) => {
+        // Clear any existing intervals
+        const intervals = (window as any).conversionIntervals || {}
+        if (intervals[jobId]) {
+          clearInterval(intervals[jobId])
+          delete intervals[jobId]
+        }
+      })
+    }
+  }, [pollingJobs])
 
   const loadFiles = async () => {
     try {
@@ -53,17 +70,25 @@ export function DocumentConverter() {
           file.mimeType.includes("pdf") ||
           file.mimeType.includes("document") ||
           file.mimeType.includes("word") ||
-          file.mimeType.includes("text"),
+          file.mimeType.includes("text") ||
+          file.mimeType.includes("image") ||
+          file.mimeType.includes("spreadsheet") ||
+          file.mimeType.includes("presentation"),
       )
       setFiles(convertibleFiles)
     } catch (error) {
       console.error("Failed to load files:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load files. Please refresh the page.",
+        variant: "destructive",
+      })
     }
   }
 
   const loadJobs = async () => {
+    // For now, we'll manage jobs in local state
     // In a real app, you'd have an endpoint to get user's conversion jobs
-    // For now, we'll just show jobs from the current session
   }
 
   const startConversion = async () => {
@@ -78,6 +103,8 @@ export function DocumentConverter() {
 
     setLoading(true)
     try {
+      console.log("Starting conversion:", { fileId: selectedFile, targetFormat })
+
       const response = await apiCall("/api/convert", {
         method: "POST",
         body: JSON.stringify({
@@ -86,20 +113,17 @@ export function DocumentConverter() {
         }),
       })
 
+      console.log("Conversion API response:", response)
+
       if (!response.jobId) {
-        toast({
-          title: "Conversion failed",
-          description: "Failed to start conversion (missing job id)",
-          variant: "destructive",
-        })
-        setLoading(false)
-        return
+        throw new Error("Job ID missing from response")
       }
 
+      const selectedFileObj = files.find((f) => f.id === selectedFile)
       const newJob: ConversionJob = {
         id: response.jobId,
-        sourceFileName: files.find((f) => f.id === selectedFile)?.originalName || "Unknown",
-        sourceFormat: "PDF", // You'd determine this from the file
+        sourceFileName: selectedFileObj?.originalName || "Unknown",
+        sourceFormat: getFileExtension(selectedFileObj?.originalName || "").toUpperCase(),
         targetFormat: targetFormat.toUpperCase(),
         progress: 0,
         status: "PROCESSING",
@@ -109,18 +133,19 @@ export function DocumentConverter() {
       setJobs((prev) => [newJob, ...prev])
       setActiveTab("history")
 
-      // Poll for job status only if jobId is valid
-      pollJobStatus(response.jobId)
+      // Start polling for job status
+      startPollingJobStatus(response.jobId)
 
       toast({
         title: "Conversion started",
-        description: "Your document is being converted. You'll be notified when it's ready.",
+        description: "Your document is being converted with CloudConvert. You'll be notified when it's ready.",
       })
 
       // Reset form
       setSelectedFile("")
       setTargetFormat("")
     } catch (error) {
+      console.error("Conversion start error:", error)
       toast({
         title: "Conversion failed",
         description: error instanceof Error ? error.message : "Failed to start conversion",
@@ -131,18 +156,25 @@ export function DocumentConverter() {
     }
   }
 
-  const pollJobStatus = async (jobId: string) => {
-    if (!jobId) {
-      toast({
-        title: "Polling error",
-        description: "Missing job id for polling.",
-        variant: "destructive",
-      })
+  const startPollingJobStatus = (jobId: string) => {
+    // Prevent multiple polling for the same job
+    if (pollingJobs.has(jobId)) {
       return
     }
+
+    setPollingJobs((prev) => new Set([...prev, jobId]))
+
+    // Store interval reference globally to ensure cleanup
+    if (!(window as any).conversionIntervals) {
+      ;(window as any).conversionIntervals = {}
+    }
+
     const pollInterval = setInterval(async () => {
       try {
+        console.log("Polling job status for:", jobId)
         const response = await apiCall(`/api/convert/${jobId}`)
+
+        console.log("Job status response:", response)
 
         setJobs((prev) =>
           prev.map((job) =>
@@ -150,15 +182,22 @@ export function DocumentConverter() {
               ? {
                   ...job,
                   status: response.status,
-                  progress: response.progress,
+                  progress: response.progress || 0,
                   error: response.error,
+                  resultFileName: response.resultFileName,
                 }
               : job,
           ),
         )
 
         if (response.status === "COMPLETED" || response.status === "FAILED") {
-          clearInterval(pollInterval)
+          clearInterval((window as any).conversionIntervals[jobId])
+          delete (window as any).conversionIntervals[jobId]
+          setPollingJobs((prev) => {
+            const newSet = new Set(prev)
+            newSet.delete(jobId)
+            return newSet
+          })
 
           if (response.status === "COMPLETED") {
             toast({
@@ -173,21 +212,20 @@ export function DocumentConverter() {
             })
           }
         }
-      } catch (error: any) {
-        // If error is 400 or 404, stop polling and show error
-        if (error?.status === 400 || error?.status === 404) {
-          clearInterval(pollInterval)
-          toast({
-            title: "Polling error",
-            description: "Conversion job not found or invalid job id.",
-            variant: "destructive",
-          })
-        } else {
-          console.error("Failed to poll job status:", error)
-          clearInterval(pollInterval)
-        }
+      } catch (error) {
+        console.error("Failed to poll job status:", error)
+        clearInterval((window as any).conversionIntervals[jobId])
+        delete (window as any).conversionIntervals[jobId]
+        setPollingJobs((prev) => {
+          const newSet = new Set(prev)
+          newSet.delete(jobId)
+          return newSet
+        })
       }
-    }, 2000) // Poll every 2 seconds
+    }, 3000)
+
+    // Poll every 3 seconds
+    ;(window as any).conversionIntervals[jobId] = pollInterval
   }
 
   const downloadConvertedFile = async (jobId: string) => {
@@ -208,7 +246,7 @@ export function DocumentConverter() {
       a.href = url
 
       const job = jobs.find((j) => j.id === jobId)
-      a.download = job?.sourceFileName.replace(/\.[^/.]+$/, `.${job.targetFormat.toLowerCase()}`) || "converted-file"
+      a.download = job?.resultFileName || `converted-file.${job?.targetFormat.toLowerCase()}`
 
       document.body.appendChild(a)
       a.click()
@@ -220,6 +258,7 @@ export function DocumentConverter() {
         description: "Your converted file is being downloaded.",
       })
     } catch (error) {
+      console.error("Download error:", error)
       toast({
         title: "Download failed",
         description: "Failed to download converted file",
@@ -228,20 +267,70 @@ export function DocumentConverter() {
     }
   }
 
+  const getFileExtension = (filename: string) => {
+    return filename.split(".").pop() || ""
+  }
+
   const getAvailableFormats = (mimeType: string) => {
     if (mimeType.includes("pdf")) {
       return [
         { value: "docx", label: "Word Document (DOCX)" },
+        { value: "doc", label: "Word Document (DOC)" },
+        { value: "xlsx", label: "Excel Spreadsheet (XLSX)" },
+        { value: "pptx", label: "PowerPoint (PPTX)" },
+        { value: "txt", label: "Text File (TXT)" },
         { value: "odt", label: "OpenDocument Text (ODT)" },
+        { value: "rtf", label: "Rich Text Format (RTF)" },
+        { value: "jpg", label: "JPEG Image" },
+        { value: "png", label: "PNG Image" },
       ]
     }
     if (mimeType.includes("word") || mimeType.includes("document")) {
-      return [{ value: "pdf", label: "PDF Document" }]
+      return [
+        { value: "pdf", label: "PDF Document" },
+        { value: "doc", label: "Word Document (DOC)" },
+        { value: "odt", label: "OpenDocument Text (ODT)" },
+        { value: "txt", label: "Text File (TXT)" },
+        { value: "rtf", label: "Rich Text Format (RTF)" },
+      ]
+    }
+    if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) {
+      return [
+        { value: "pdf", label: "PDF Document" },
+        { value: "ods", label: "OpenDocument Spreadsheet (ODS)" },
+        { value: "csv", label: "CSV File" },
+      ]
+    }
+    if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) {
+      return [
+        { value: "pdf", label: "PDF Document" },
+        { value: "odp", label: "OpenDocument Presentation (ODP)" },
+      ]
     }
     if (mimeType.includes("text")) {
       return [
         { value: "pdf", label: "PDF Document" },
         { value: "docx", label: "Word Document (DOCX)" },
+        { value: "doc", label: "Word Document (DOC)" },
+        { value: "odt", label: "OpenDocument Text (ODT)" },
+        { value: "rtf", label: "Rich Text Format (RTF)" },
+      ]
+    }
+    if (mimeType.includes("image")) {
+      return [
+        { value: "pdf", label: "PDF Document" },
+        { value: "jpg", label: "JPEG Image" },
+        { value: "png", label: "PNG Image" },
+        { value: "webp", label: "WebP Image" },
+      ]
+    }
+    if (mimeType.includes("oasis")) {
+      return [
+        { value: "pdf", label: "PDF Document" },
+        { value: "docx", label: "Word Document (DOCX)" },
+        { value: "doc", label: "Word Document (DOC)" },
+        { value: "txt", label: "Text File (TXT)" },
+        { value: "rtf", label: "Rich Text Format (RTF)" },
       ]
     }
     return []
@@ -250,19 +339,36 @@ export function DocumentConverter() {
   const selectedFileObj = files.find((f) => f.id === selectedFile)
   const availableFormats = selectedFileObj ? getAvailableFormats(selectedFileObj.mimeType) : []
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
           Document Converter
         </h1>
-        <p className="text-muted-foreground mt-1">Convert your documents between different formats</p>
+        <p className="text-muted-foreground mt-1">
+          Convert your documents between different formats using CloudConvert
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="convert">Convert Document</TabsTrigger>
-          <TabsTrigger value="history">Conversion History</TabsTrigger>
+          <TabsTrigger value="history">
+            Conversion History
+            {jobs.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {jobs.length}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="convert">
@@ -292,7 +398,10 @@ export function DocumentConverter() {
                       ) : (
                         files.map((file) => (
                           <SelectItem key={file.id} value={file.id}>
-                            {file.originalName}
+                            <div className="flex items-center justify-between w-full">
+                              <span>{file.originalName}</span>
+                              <span className="text-xs text-muted-foreground ml-2">{formatFileSize(file.size)}</span>
+                            </div>
                           </SelectItem>
                         ))
                       )}
@@ -337,9 +446,9 @@ export function DocumentConverter() {
 
               {files.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No convertible files found.</p>
-                  <p className="text-sm">Upload some PDF or Word documents first.</p>
+                  <p className="text-sm">Upload some documents first to start converting.</p>
                 </div>
               )}
             </CardContent>
@@ -366,7 +475,7 @@ export function DocumentConverter() {
                   {jobs.map((job) => (
                     <div
                       key={job.id}
-                      className="flex items-center gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50"
+                      className="flex items-center gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
                     >
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center justify-between">
@@ -395,7 +504,7 @@ export function DocumentConverter() {
                         {job.status === "PROCESSING" && (
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Converting...</span>
+                              <span>Converting with CloudConvert...</span>
                               <span>{job.progress}%</span>
                             </div>
                             <Progress value={job.progress} className="h-2" />

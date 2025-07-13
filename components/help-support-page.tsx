@@ -25,31 +25,39 @@ type ContactFormData = z.infer<typeof contactSchema>
 
 const faqs = [
   {
-    question: "How much storage do I get?",
-    answer: "Each account comes with 10GB of free storage. You can upgrade to get more storage space if needed.",
+    question: "How much storage do I get with Storage Sense?",
+    answer:
+      "Each account comes with 10GB of free storage. You can upgrade to get more storage space with detailed analytics and optimization suggestions.",
   },
   {
     question: "What file formats are supported for conversion?",
     answer:
-      "We support conversion between PDF, DOCX, DOC, ODT, and TXT formats. More formats are being added regularly.",
+      "Storage Sense supports conversion between PDF, DOCX, DOC, ODT, TXT, images, and many more formats using CloudConvert technology. We support over 200 different file formats.",
   },
   {
-    question: "Is my data secure?",
+    question: "How does the file preview feature work?",
     answer:
-      "Yes, all files are encrypted during upload and storage. We use industry-standard security practices to protect your data.",
+      "Storage Sense provides instant previews for images, videos, audio files, PDFs, and text documents. You can zoom, rotate images, and even preview videos directly in your browser.",
+  },
+  {
+    question: "Is my data secure with Storage Sense?",
+    answer:
+      "Yes, all files are encrypted during upload and storage. We use industry-standard security practices and never access your personal files. Your privacy is our priority.",
   },
   {
     question: "Can I share files with others?",
-    answer: "File sharing features are coming soon. Currently, you can download files and share them manually.",
+    answer:
+      "File sharing features are coming soon to Storage Sense. Currently, you can download files and share them manually.",
   },
   {
     question: "What's the maximum file size I can upload?",
-    answer: "The maximum file size per upload is 100MB. For larger files, please contact support.",
+    answer:
+      "The maximum file size per upload is 100MB. For larger files, please contact our support team for assistance.",
   },
   {
-    question: "How long are files stored?",
+    question: "How does storage analytics work?",
     answer:
-      "Files are stored indefinitely as long as your account is active. Inactive accounts may have files removed after 1 year.",
+      "Storage Sense provides detailed analytics showing your storage usage by file type, recent activity, and personalized optimization suggestions to help you manage your space efficiently.",
   },
 ]
 
@@ -94,7 +102,7 @@ export function HelpSupportPage() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
           Help & Support
         </h1>
-        <p className="text-muted-foreground mt-1">Get help with FileVault or contact our support team</p>
+        <p className="text-muted-foreground mt-1">Get help with Storage Sense or contact our support team</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -130,20 +138,31 @@ export function HelpSupportPage() {
                 <h4 className="font-medium">Getting Started</h4>
                 <p className="text-sm text-muted-foreground">
                   Upload files by dragging and dropping them into the upload area, or click to browse your computer.
+                  Storage Sense will automatically organize and analyze your files.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-medium">File Previews</h4>
+                <p className="text-sm text-muted-foreground">
+                  Click the preview button on any supported file to view it instantly. You can zoom, rotate images, and
+                  play media files directly in your browser.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <h4 className="font-medium">Converting Documents</h4>
                 <p className="text-sm text-muted-foreground">
-                  Go to the Convert section, select your file, choose the target format, and start the conversion.
+                  Go to the Convert section, select your file, choose the target format, and start the conversion using
+                  CloudConvert technology.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-medium">Managing Files</h4>
+                <h4 className="font-medium">Storage Analytics</h4>
                 <p className="text-sm text-muted-foreground">
-                  Use the My Files section to view, download, or delete your uploaded files.
+                  View your storage breakdown by file type in your profile. Storage Sense provides optimization
+                  suggestions to help you manage space efficiently.
                 </p>
               </div>
             </CardContent>
@@ -208,7 +227,7 @@ export function HelpSupportPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
               >
                 {loading ? "Sending..." : "Send Message"}
               </Button>
@@ -217,7 +236,7 @@ export function HelpSupportPage() {
             <div className="mt-6 pt-6 border-t">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="w-4 h-4" />
-                <span>You can also email us directly at support@filevault.com</span>
+                <span>You can also email us directly at support@storagesense.com</span>
               </div>
             </div>
           </CardContent>

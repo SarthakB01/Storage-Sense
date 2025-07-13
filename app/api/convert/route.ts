@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/database"
 import { withAuth } from "@/lib/auth"
-import { convertDocument, isConversionSupported } from "@/lib/document-converter"
+import { convertDocumentWithCloudConvert } from "@/lib/document-converter"
 import path from "path"
+import fs from "fs/promises"
 
 /**
- * POST /api/convert - Convert document
+ * POST /api/convert - Convert document using CloudConvert
  */
 export const POST = withAuth(async (request: NextRequest, user) => {
   try {
@@ -13,6 +14,16 @@ export const POST = withAuth(async (request: NextRequest, user) => {
 
     if (!fileId || !targetFormat) {
       return NextResponse.json({ error: "File ID and target format are required" }, { status: 400 })
+    }
+
+    // Check if CloudConvert API key is configured
+    if (!process.env.CLOUDCONVERT_API_KEY) {
+      return NextResponse.json(
+        {
+          error: "CloudConvert API key not configured. Please add CLOUDCONVERT_API_KEY to your environment variables.",
+        },
+        { status: 500 },
+      )
     }
 
     // Find the source file
@@ -27,72 +38,96 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
-    // Check if conversion is supported
-    if (!isConversionSupported(sourceFile.mimeType, targetFormat)) {
-      return NextResponse.json({ error: "Conversion not supported" }, { status: 400 })
+    // Check if source file exists on disk
+    try {
+      await fs.access(sourceFile.path)
+    } catch {
+      return NextResponse.json({ error: "Source file not found on disk" }, { status: 404 })
     }
 
-    // Create conversion job
+    // Create conversion job in database
     const conversionJob = await db.conversionJob.create({
       data: {
         userId: user.userId,
         sourceFileId: sourceFile.id,
         sourceFileName: sourceFile.originalName,
-        sourceFormat: path.extname(sourceFile.originalName).substring(1),
-        targetFormat,
+        sourceFormat: path.extname(sourceFile.originalName).substring(1).toUpperCase(),
+        targetFormat: targetFormat.toUpperCase(),
         status: "PROCESSING",
+        progress: 10,
       },
     })
 
+    console.log("Created conversion job:", conversionJob.id)
+
     // Start conversion process (in background)
-    processConversion(conversionJob.id, sourceFile.path, targetFormat).catch((error) => {
-      console.error("Conversion process error:", error)
-      // Update job status to failed
-      db.conversionJob
-        .update({
-          where: { id: conversionJob.id },
-          data: {
-            status: "FAILED",
-            error: error.message,
-            progress: 0,
-          },
-        })
-        .catch(console.error)
-    })
+    processConversionWithCloudConvert(conversionJob.id, sourceFile.path, targetFormat, sourceFile.originalName).catch(
+      (error) => {
+        console.error("Background conversion process error:", error)
+        // Update job status to failed
+        db.conversionJob
+          .update({
+            where: { id: conversionJob.id },
+            data: {
+              status: "FAILED",
+              error: error.message,
+              progress: 0,
+            },
+          })
+          .catch(console.error)
+      },
+    )
 
     return NextResponse.json({
       jobId: conversionJob.id,
       status: "PROCESSING",
+      message: "Conversion started successfully with CloudConvert",
     })
   } catch (error) {
     console.error("Error starting conversion:", error)
-    return NextResponse.json({ error: "Failed to start conversion" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to start conversion",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 })
 
 /**
- * Background conversion process
+ * Background conversion process using CloudConvert
  */
-async function processConversion(jobId: string, sourcePath: string, targetFormat: string) {
+async function processConversionWithCloudConvert(
+  jobId: string,
+  sourcePath: string,
+  targetFormat: string,
+  originalFileName: string,
+) {
   try {
-    // Update progress
+    console.log("Starting CloudConvert background conversion for job:", jobId)
+
+    // Update progress to 25%
     await db.conversionJob.update({
       where: { id: jobId },
       data: { progress: 25 },
     })
 
-    // Perform conversion
-    const outputDir = path.join(process.env.UPLOAD_DIR || "./uploads", "conversions")
-    const resultPath = await convertDocument(sourcePath, targetFormat, outputDir)
+    // Perform conversion using CloudConvert
+    const resultPath = await convertDocumentWithCloudConvert(sourcePath, targetFormat, originalFileName)
 
-    // Update progress
+    console.log("CloudConvert conversion completed, result path:", resultPath)
+
+    // Update progress to 75%
     await db.conversionJob.update({
       where: { id: jobId },
       data: { progress: 75 },
     })
 
     // Generate result filename
-    const resultFileName = `converted_${Date.now()}.${targetFormat}`
+    const fileExtension = targetFormat.toLowerCase()
+    const baseName = path.basename(originalFileName, path.extname(originalFileName))
+    const resultFileName = `${baseName}_converted.${fileExtension}`
 
     // Update job with result
     await db.conversionJob.update({
@@ -104,13 +139,15 @@ async function processConversion(jobId: string, sourcePath: string, targetFormat
         resultFileName,
       },
     })
+
+    console.log("CloudConvert conversion job completed successfully:", jobId)
   } catch (error) {
-    console.error("Conversion error:", error)
+    console.error("CloudConvert conversion process error:", error)
     await db.conversionJob.update({
       where: { id: jobId },
       data: {
         status: "FAILED",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown conversion error",
         progress: 0,
       },
     })

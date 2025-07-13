@@ -14,6 +14,10 @@ import {
   Grid,
   List,
   RefreshCw,
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -43,12 +47,25 @@ export function FileStorage() {
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(100)
+  const [rotation, setRotation] = useState(0)
   const { apiCall } = useApi()
   const { toast } = useToast()
 
   useEffect(() => {
     loadFiles()
   }, [searchQuery])
+
+  useEffect(() => {
+    // Cleanup preview URL when dialog closes
+    if (!previewOpen && previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+      setZoom(100)
+      setRotation(0)
+    }
+  }, [previewOpen, previewUrl])
 
   const loadFiles = async () => {
     try {
@@ -70,21 +87,29 @@ export function FileStorage() {
     }
   }
 
-  const handlePreview = (file: FileItem) => {
+  const handlePreview = async (file: FileItem) => {
     setSelectedFile(file)
     setPreviewOpen(true)
+
+    // Load file for preview
+    try {
+      const response = await fetch(`/api/files/${file.id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        setPreviewUrl(url)
+      }
+    } catch (error) {
+      console.error("Failed to load file for preview:", error)
+    }
   }
 
   const handleDownload = async (file: FileItem) => {
-    console.log("Attempting to download file:", file);
-    if (!file.id) {
-      toast({
-        title: "Download failed",
-        description: "Invalid file. Please try again.",
-        variant: "destructive",
-      })
-      return
-    }
     try {
       const response = await fetch(`/api/files/${file.id}`, {
         headers: {
@@ -149,7 +174,7 @@ export function FileStorage() {
   }
 
   const getFileColor = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return { color: "text-green-500", bg: "bg-green-50 dark:bg-green-950/20" }
+    if (mimeType.startsWith("image/")) return { color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/20" }
     if (mimeType.startsWith("video/")) return { color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-950/20" }
     if (mimeType.startsWith("audio/")) return { color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950/20" }
     if (mimeType.includes("pdf")) return { color: "text-red-500", bg: "bg-red-50 dark:bg-red-950/20" }
@@ -188,12 +213,128 @@ export function FileStorage() {
     return "FILE"
   }
 
+  const canPreview = (mimeType: string) => {
+    return (
+      mimeType.startsWith("image/") ||
+      mimeType.startsWith("video/") ||
+      mimeType.startsWith("audio/") ||
+      mimeType.includes("pdf") ||
+      mimeType.startsWith("text/")
+    )
+  }
+
+  const renderPreview = () => {
+    if (!selectedFile || !previewUrl) {
+      return (
+        <div className="flex items-center justify-center h-96 bg-slate-50 dark:bg-slate-800 rounded-lg">
+          <div className="text-center">
+            <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600 dark:text-slate-400">Loading preview...</p>
+          </div>
+        </div>
+      )
+    }
+
+    const { mimeType } = selectedFile
+
+    if (mimeType.startsWith("image/")) {
+      return (
+        <div className="relative bg-slate-50 dark:bg-slate-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setZoom(Math.max(25, zoom - 25))}
+                disabled={zoom <= 25}
+              >
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <span className="text-sm font-medium">{zoom}%</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setZoom(Math.min(200, zoom + 25))}
+                disabled={zoom >= 200}
+              >
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setRotation((rotation + 90) % 360)}>
+              <RotateCw className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex items-center justify-center p-8 min-h-96">
+            <img
+              src={previewUrl || "/placeholder.svg"}
+              alt={selectedFile.originalName}
+              className="max-w-full max-h-96 object-contain transition-transform duration-200"
+              style={{
+                transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+              }}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    if (mimeType.startsWith("video/")) {
+      return (
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+          <video src={previewUrl} controls className="w-full max-h-96 rounded" preload="metadata">
+            Your browser does not support video playback.
+          </video>
+        </div>
+      )
+    }
+
+    if (mimeType.startsWith("audio/")) {
+      return (
+        <div className="flex items-center justify-center h-96 bg-slate-50 dark:bg-slate-800 rounded-lg">
+          <div className="text-center space-y-4">
+            <Music className="w-16 h-16 text-slate-400 mx-auto" />
+            <audio src={previewUrl} controls className="mx-auto">
+              Your browser does not support audio playback.
+            </audio>
+            <p className="text-slate-600 dark:text-slate-400">{selectedFile.originalName}</p>
+          </div>
+        </div>
+      )
+    }
+
+    if (mimeType.includes("pdf")) {
+      return (
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+          <iframe src={previewUrl} className="w-full h-96 rounded border" title={selectedFile.originalName} />
+        </div>
+      )
+    }
+
+    if (mimeType.startsWith("text/")) {
+      return (
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+          <iframe src={previewUrl} className="w-full h-96 rounded border bg-white" title={selectedFile.originalName} />
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-center h-96 bg-slate-50 dark:bg-slate-800 rounded-lg">
+        <div className="text-center">
+          <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Preview not available for this file type</p>
+          <p className="text-sm text-muted-foreground mt-1">Click download to view the file</p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-emerald-500" />
             <p className="text-muted-foreground">Loading your files...</p>
           </div>
         </div>
@@ -247,9 +388,9 @@ export function FileStorage() {
             <FileText className="w-16 h-16 text-slate-400 mb-4" />
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No files yet</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Upload your first file to get started with FileVault
+              Upload your first file to get started with Storage Sense
             </p>
-            <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
+            <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
               Upload Files
             </Button>
           </CardContent>
@@ -259,11 +400,12 @@ export function FileStorage() {
           {files.map((file) => {
             const FileIcon = getFileIcon(file.mimeType)
             const { color, bg } = getFileColor(file.mimeType)
+            const previewable = canPreview(file.mimeType)
 
             return (
               <Card
                 key={file.id}
-                className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm"
+                className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
@@ -281,10 +423,12 @@ export function FileStorage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handlePreview(file)} className="cursor-pointer">
-                          <Eye className="mr-2 h-4 w-4" />
-                          Preview
-                        </DropdownMenuItem>
+                        {previewable && (
+                          <DropdownMenuItem onClick={() => handlePreview(file)} className="cursor-pointer">
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleDownload(file)} className="cursor-pointer">
                           <Download className="mr-2 h-4 w-4" />
                           Download
@@ -298,7 +442,7 @@ export function FileStorage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {file.originalName}
                     </h3>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -311,14 +455,16 @@ export function FileStorage() {
                   </div>
 
                   <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="flex-1">
-                      <Eye className="w-3 h-3 mr-1" />
-                      Preview
-                    </Button>
+                    {previewable && (
+                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="flex-1">
+                        <Eye className="w-3 h-3 mr-1" />
+                        Preview
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       onClick={() => handleDownload(file)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                      className={`${previewable ? "flex-1" : "w-full"} bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700`}
                     >
                       <Download className="w-3 h-3 mr-1" />
                       Download
@@ -332,37 +478,39 @@ export function FileStorage() {
       )}
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center justify-between">
               {selectedFile && (
-                <>
+                <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${getFileColor(selectedFile.mimeType).bg}`}>
                     {(() => {
                       const FileIcon = getFileIcon(selectedFile.mimeType)
                       return <FileIcon className={`w-5 h-5 ${getFileColor(selectedFile.mimeType).color}`} />
                     })()}
                   </div>
-                  {selectedFile.originalName}
-                </>
+                  <div>
+                    <span className="font-semibold">{selectedFile.originalName}</span>
+                    <p className="text-sm text-muted-foreground font-normal">
+                      {formatFileSize(selectedFile.size)} • {getFileType(selectedFile.mimeType)}
+                    </p>
+                  </div>
+                </div>
               )}
+              <Button variant="ghost" size="icon" onClick={() => setPreviewOpen(false)} className="h-6 w-6">
+                <X className="h-4 w-4" />
+              </Button>
             </DialogTitle>
           </DialogHeader>
-          <div className="flex items-center justify-center h-96 bg-slate-50 dark:bg-slate-800 rounded-lg">
-            <div className="text-center">
-              <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-600 dark:text-slate-400">File preview not available</p>
-              <p className="text-sm text-muted-foreground mt-1">Click download to view the file</p>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="overflow-auto max-h-[calc(90vh-8rem)]">{renderPreview()}</div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setPreviewOpen(false)}>
               Close
             </Button>
             {selectedFile && (
               <Button
                 onClick={() => handleDownload(selectedFile)}
-                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download
