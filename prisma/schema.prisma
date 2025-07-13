@@ -1,0 +1,108 @@
+// Database schema for the file storage application
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User settings
+  settings UserSettings?
+
+  // User files
+  files File[]
+
+  // Conversion jobs
+  conversions ConversionJob[]
+
+  @@map("users")
+}
+
+model UserSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification preferences
+  emailNotifications      Boolean @default(true)
+  pushNotifications       Boolean @default(false)
+  uploadNotifications     Boolean @default(true)
+  conversionNotifications Boolean @default(true)
+
+  // Storage preferences
+  storageLimit BigInt @default(10737418240) // 10GB in bytes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model File {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // File metadata
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+
+  // File organization
+  folder String @default("/")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("files")
+}
+
+model ConversionJob {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Source file info
+  sourceFileId   String?
+  sourceFileName String
+  sourceFormat   String
+
+  // Target format
+  targetFormat String
+
+  // Job status
+  status ConversionStatus @default(PENDING)
+  progress Int @default(0)
+  error    String?
+
+  // Result file
+  resultFilePath String?
+  resultFileName String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversion_jobs")
+}
+
+enum ConversionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
