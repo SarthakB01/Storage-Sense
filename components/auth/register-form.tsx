@@ -48,7 +48,7 @@ export function RegisterForm({ onToggleMode }: RegisterFormProps) {
       await registerUser(data.name, data.email, data.password)
       toast({
         title: "Account created!",
-        description: "Welcome to FileVault. Your account has been created successfully.",
+        description: "Welcome to Storage Sense. Your account has been created successfully.",
       })
     } catch (error) {
       toast({
@@ -65,7 +65,7 @@ export function RegisterForm({ onToggleMode }: RegisterFormProps) {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
-        <CardDescription>Join FileVault to start managing your files</CardDescription>
+        <CardDescription>Join Storage Sense to start managing your files</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

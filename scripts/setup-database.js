@@ -6,7 +6,7 @@ async function setupDatabase() {
   const prisma = new PrismaClient()
 
   try {
-    console.log("🚀 Setting up FileVault database and directories...")
+    console.log("🚀 Setting up Storage Sense database and directories...")
 
     // First, create upload directories
     const uploadDir = path.join(process.cwd(), "uploads")

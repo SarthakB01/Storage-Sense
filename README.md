@@ -1,341 +1,156 @@
-# FileVault - Modern File Storage & Conversion Platform
+# Storage Sense - Modern File Storage & Conversion Platform
 
-A full-stack file storage and document conversion application built with Next.js, featuring user authentication, file management, and document conversion capabilities.
+A full-stack file storage and document conversion application built with Next.js, featuring user authentication, file management, and **cloud-based document conversion** (CloudConvert API).
+
+---
 
 ## 🚀 Features
 
-### Core Functionality
-- **User Authentication** - Secure registration, login, and JWT-based sessions
-- **File Storage** - Upload, organize, and manage files with drag & drop
-- **Document Conversion** - Convert between PDF, DOCX, DOC, and other formats
-- **File Management** - Preview, download, and delete files
-- **Storage Quotas** - Track usage with configurable storage limits
+- **User Authentication:** Register, login, JWT-based sessions.
+- **File Storage:** Upload, download, delete, and organize files.
+- **Document Conversion:** Convert between PDF, DOCX, DOC, XLSX, PPTX, ODT, RTF, images, and more using CloudConvert.
+- **Conversion Progress:** Real-time status and progress for each conversion job.
+- **Conversion History:** View and download past conversions.
+- **Storage Quotas:** Per-user storage limits with detailed usage breakdown and optimization suggestions.
+- **Modern UI:** Responsive, dark/light themes, toasts, sidebar navigation.
+- **Support & Help:** Contact form and help page.
 
-### User Experience
-- **Modern UI** - Beautiful, responsive design with dark/light themes
-- **Real-time Progress** - Live upload and conversion progress tracking
-- **Notifications** - Toast notifications and configurable preferences
-- **Search & Filter** - Find files quickly with search functionality
-
-### Security & Performance
-- **Secure Authentication** - Password hashing with bcrypt, JWT tokens
-- **File Validation** - Type and size validation for uploads
-- **API Protection** - Middleware-protected routes with proper error handling
-- **Database Optimization** - Efficient queries with Prisma ORM
+---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **shadcn/ui** - Modern component library
-- **React Hook Form** - Form handling with validation
+- **Frontend:** Next.js (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend:** Next.js API routes, Prisma ORM, SQLite (dev), CloudConvert API
+- **Authentication:** JWT, context-managed on frontend
+- **File Storage:** Local `uploads/` directory (can be adapted for cloud)
+- **Conversion:** CloudConvert API (no local LibreOffice dependency)
 
-### Backend
-- **Next.js API Routes** - Serverless API endpoints
-- **Prisma** - Database ORM with SQLite
-- **JWT** - Authentication tokens
-- **Multer** - File upload handling
-- **LibreOffice** - Document conversion engine
-
-### Development
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
-- **Zod** - Runtime type validation
+---
 
 ## 📁 Project Structure
 
-\`\`\`
+```
 file-storage-app/
 ├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   ├── auth/          # Authentication endpoints
-│   │   ├── files/         # File management endpoints
-│   │   ├── convert/       # Document conversion endpoints
-│   │   ├── user/          # User profile and settings
-│   │   └── support/       # Support and contact endpoints
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Main application page
-├── components/            # React components
-│   ├── auth/              # Authentication components
-│   ├── ui/                # shadcn/ui components
-│   ├── app-sidebar.tsx    # Main navigation sidebar
-│   ├── header.tsx         # Application header
-│   ├── file-storage.tsx   # File management interface
-│   ├── file-upload.tsx    # File upload interface
-│   ├── document-converter.tsx # Conversion interface
-│   ├── user-profile.tsx   # User profile page
-│   ├── settings-page.tsx  # Settings interface
-│   └── help-support-page.tsx # Help and support
-├── contexts/              # React contexts
-│   └── auth-context.tsx   # Authentication state management
+│   ├── api/               # API routes (auth, files, convert, user, support)
+│   ├── ...                # Layout, pages, styles
+├── components/            # React components (auth, UI, file mgmt, converter, etc.)
+├── contexts/              # React contexts (auth)
 ├── hooks/                 # Custom React hooks
-│   ├── use-api.ts         # API call utilities
-│   └── use-toast.ts       # Toast notifications
-├── lib/                   # Utility libraries
-│   ├── auth.ts            # Authentication utilities
-│   ├── database.ts        # Database connection
-│   ├── file-storage.ts    # File system operations
-│   └── document-converter.ts # Document conversion logic
+├── lib/                   # Utility libraries (auth, db, file-storage, document-converter)
 ├── prisma/                # Database schema and migrations
-│   └── schema.prisma      # Database schema definition
 ├── scripts/               # Setup and utility scripts
-│   └── setup-database.js  # Database initialization
 ├── uploads/               # File storage directory
 └── README.md              # Project documentation
-\`\`\`
+```
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm
-- LibreOffice (for document conversion)
+- Node.js 18+ and npm or pnpm
+- **CloudConvert API key** (sign up at [cloudconvert.com](https://cloudconvert.com/))
 
 ### Installation
 
 1. **Clone the repository**
-   \`\`\`bash
-   git clone <repository-url>
+   ```bash
+   git clone https://github.com/SarthakB01/Storage-Sense
    cd file-storage-app
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```bash
    npm install
-   \`\`\`
+   # or
+   pnpm install
+   ```
 
 3. **Set up environment variables**
-   \`\`\`bash
+   ```bash
    cp .env.example .env
-   # Edit .env with your configuration
-   \`\`\`
+   # Edit .env with your configuration, including CLOUDCONVERT_API_KEY
+   ```
 
 4. **Initialize the database**
-   \`\`\`bash
+   ```bash
    npx prisma generate
    npx prisma db push
    node scripts/setup-database.js
-   \`\`\`
+   ```
 
-5. **Install LibreOffice** (for document conversion)
-   \`\`\`bash
-   # Ubuntu/Debian
-   sudo apt-get install libreoffice
-   
-   # macOS
-   brew install --cask libreoffice
-   
-   # Windows
-   # Download from https://www.libreoffice.org/download/
-   \`\`\`
-
-6. **Start the development server**
-   \`\`\`bash
+5. **Start the development server**
+   ```bash
    npm run dev
-   \`\`\`
+   # or
+   pnpm dev
+   ```
 
-7. **Open your browser**
+6. **Open your browser**
    Navigate to `http://localhost:3000`
+
+---
 
 ## 📖 API Documentation
 
 ### Authentication Endpoints
 
-#### POST /api/auth/register
-Register a new user account.
-
-**Request Body:**
-\`\`\`json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "securepassword123"
-}
-\`\`\`
-
-**Response:**
-\`\`\`json
-{
-  "user": {
-    "id": "user_id",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "avatar": null
-  },
-  "token": "jwt_token"
-}
-\`\`\`
-
-#### POST /api/auth/login
-Authenticate an existing user.
-
-**Request Body:**
-\`\`\`json
-{
-  "email": "john@example.com",
-  "password": "securepassword123"
-}
-\`\`\`
+- `POST /api/auth/register` — Register a new user
+- `POST /api/auth/login` — Login and receive JWT
 
 ### File Management Endpoints
 
-#### GET /api/files
-List user's files with optional filtering.
-
-**Query Parameters:**
-- `folder` - Filter by folder (default: "/")
-- `search` - Search in filenames
-
-**Headers:**
-\`\`\`
-Authorization: Bearer <jwt_token>
-\`\`\`
-
-#### POST /api/files
-Upload a new file.
-
-**Request:** Multipart form data
-- `file` - File to upload
-- `folder` - Target folder (optional)
-
-#### GET /api/files/[id]
-Download a specific file.
-
-#### DELETE /api/files/[id]
-Delete a specific file.
+- `GET /api/files` — List user files
+- `POST /api/files` — Upload file (multipart/form-data)
+- `GET /api/files/[id]` — Download file
+- `DELETE /api/files/[id]` — Delete file
 
 ### Document Conversion Endpoints
 
-#### POST /api/convert
-Start a document conversion job.
+- `POST /api/convert` — Start a conversion job (uses CloudConvert)
+- `GET /api/convert/[id]` — Get job status
+- `GET /api/convert/[id]/download` — Download converted file
 
-**Request Body:**
-\`\`\`json
-{
-  "fileId": "file_id",
-  "targetFormat": "pdf"
-}
-\`\`\`
+### User & Storage Endpoints
 
-#### GET /api/convert/[id]
-Get conversion job status.
+- `GET /api/user/profile` — Get user profile
+- `PUT /api/user/profile` — Update profile
+- `GET /api/user/settings` — Get user settings
+- `PUT /api/user/settings` — Update settings
+- `GET /api/user/storage` — Get storage usage, breakdown, and suggestions
 
-#### GET /api/convert/[id]/download
-Download converted file.
-
-### User Management Endpoints
-
-#### GET /api/user/profile
-Get user profile information.
-
-#### PUT /api/user/profile
-Update user profile.
-
-#### GET /api/user/settings
-Get user settings.
-
-#### PUT /api/user/settings
-Update user settings.
-
-#### GET /api/user/storage
-Get storage usage information.
+---
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | Database connection string | `file:./dev.db` |
-| `JWT_SECRET` | Secret key for JWT tokens | Required |
-| `UPLOAD_DIR` | File upload directory | `./uploads` |
-| `MAX_FILE_SIZE` | Maximum file size in bytes | `104857600` (100MB) |
-| `SMTP_HOST` | SMTP server for emails | Required for contact form |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_USER` | SMTP username | Required for contact form |
-| `SMTP_PASS` | SMTP password | Required for contact form |
+| Variable                | Description                        | Default         |
+|-------------------------|------------------------------------|-----------------|
+| `DATABASE_URL`          | Database connection string         | `file:./dev.db` |
+| `JWT_SECRET`            | Secret key for JWT tokens          | Required        |
+| `UPLOAD_DIR`            | File upload directory              | `./uploads`     |
+| `CLOUDCONVERT_API_KEY`  | CloudConvert API key               | Required        |
+| ...                     | ...                                | ...             |
 
-### File Upload Limits
-
-- **Maximum file size:** 100MB per file
-- **Supported formats:** All common file types
-- **Storage quota:** 10GB per user (configurable)
-
-### Document Conversion
-
-Supported conversion formats:
-- **Word to PDF:** DOC, DOCX → PDF
-- **PDF to Word:** PDF → DOCX
-- **Text to PDF:** TXT → PDF
-- **OpenDocument:** ODT ↔ PDF, DOCX
+---
 
 ## 🚀 Deployment
 
-### Production Build
+- See the original README for production build and deployment steps.
+- **Note:** You do NOT need LibreOffice for conversion; all conversions are handled via CloudConvert API.
 
-1. **Build the application**
-   \`\`\`bash
-   npm run build
-   \`\`\`
-
-2. **Start production server**
-   \`\`\`bash
-   npm start
-   \`\`\`
-
-### Environment Setup
-
-1. **Database:** Set up a production database (PostgreSQL recommended)
-2. **File Storage:** Configure cloud storage (AWS S3, Google Cloud Storage)
-3. **Email Service:** Set up SMTP service for notifications
-4. **LibreOffice:** Install on production server for conversions
-
-### Security Considerations
-
-- Use strong JWT secrets in production
-- Enable HTTPS for all communications
-- Implement rate limiting for API endpoints
-- Regular security updates for dependencies
-- File type validation and virus scanning
-- Backup strategies for user data
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+---
 
 ## 🆘 Support
 
-- **Documentation:** Check this README and inline code comments
-- **Issues:** Report bugs and feature requests via GitHub Issues
-- **Email:** Contact support@filevault.com for direct assistance
+- **Documentation:** This README and inline code comments
+- **Issues:** GitHub Issues
+- **Email:** support@storagesense.com
+
+---
 
 ## 🎯 Roadmap
 
-### Upcoming Features
-- [ ] File sharing with public links
-- [ ] Collaborative file editing
-- [ ] Advanced file organization (tags, folders)
-- [ ] Bulk file operations
-- [ ] API rate limiting
-- [ ] File versioning
-- [ ] Integration with cloud storage providers
-- [ ] Mobile app development
-- [ ] Advanced analytics and reporting
-- [ ] Team collaboration features
-
-### Performance Improvements
-- [ ] Implement file chunking for large uploads
-- [ ] Add Redis caching for frequently accessed data
-- [ ] Optimize database queries with indexing
-- [ ] Implement CDN for file delivery
-- [ ] Add background job processing for conversions
+- File sharing, collaboration, advanced analytics, mobile app, and more (see original roadmap).

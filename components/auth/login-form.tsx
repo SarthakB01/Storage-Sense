@@ -58,7 +58,7 @@ export function LoginForm({ onToggleMode }: LoginFormProps) {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your FileVault account</CardDescription>
+        <CardDescription>Sign in to your Storage Sense account</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
