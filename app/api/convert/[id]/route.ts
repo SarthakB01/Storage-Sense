@@ -5,11 +5,15 @@ import { withAuth } from "@/lib/auth"
 /**
  * GET /api/convert/[id] - Get conversion job status
  */
-export const GET = withAuth(async (request: NextRequest, user, { params }: { params: { id: string } }) => {
+export const GET = withAuth(async (request: NextRequest, user, context?: { params?: { id?: string } }) => {
+  const id = context?.params?.id;
+  if (!id) {
+    return NextResponse.json({ error: "Missing job id" }, { status: 400 });
+  }
   try {
     const job = await db.conversionJob.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.userId,
       },
     })

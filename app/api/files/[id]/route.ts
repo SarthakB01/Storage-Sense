@@ -7,21 +7,31 @@ import fs from "fs"
 /**
  * GET /api/files/[id] - Download file
  */
-export const GET = withAuth(async (request: NextRequest, user, { params }: { params: { id: string } }) => {
+export const GET = withAuth(async (request: NextRequest, user) => {
+  const url = new URL(request.url);
+  const id = url.pathname.split("/").pop();
+  if (!id) {
+    console.log("[API] Download: Missing file id");
+    return NextResponse.json({ error: "Missing file id" }, { status: 400 });
+  }
   try {
     const file = await db.file.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.userId,
       },
     })
 
+    console.log("[API] Download: DB file lookup result:", file);
+
     if (!file) {
+      console.log("[API] Download: File not found in DB for id", id, "and user", user.userId);
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
     // Check if file exists on disk
     if (!fs.existsSync(file.path)) {
+      console.log("[API] Download: File not found on disk at path", file.path);
       return NextResponse.json({ error: "File not found on disk" }, { status: 404 })
     }
 
@@ -31,7 +41,7 @@ export const GET = withAuth(async (request: NextRequest, user, { params }: { par
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": file.mimeType,
-        "Content-Disposition": `attachment; filename="${file.originalName}"`,
+        "Content-Disposition": `attachment; filename=\"${file.originalName}\"`,
         "Content-Length": file.size.toString(),
       },
     })
@@ -44,11 +54,16 @@ export const GET = withAuth(async (request: NextRequest, user, { params }: { par
 /**
  * DELETE /api/files/[id] - Delete file
  */
-export const DELETE = withAuth(async (request: NextRequest, user, { params }: { params: { id: string } }) => {
+export const DELETE = withAuth(async (request: NextRequest, user) => {
+  const url = new URL(request.url);
+  const id = url.pathname.split("/").pop();
+  if (!id) {
+    return NextResponse.json({ error: "Missing file id" }, { status: 400 });
+  }
   try {
     const file = await db.file.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: user.userId,
       },
     })
@@ -62,7 +77,7 @@ export const DELETE = withAuth(async (request: NextRequest, user, { params }: { 
 
     // Delete file record from database
     await db.file.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

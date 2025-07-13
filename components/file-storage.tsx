@@ -76,6 +76,15 @@ export function FileStorage() {
   }
 
   const handleDownload = async (file: FileItem) => {
+    console.log("Attempting to download file:", file);
+    if (!file.id) {
+      toast({
+        title: "Download failed",
+        description: "Invalid file. Please try again.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       const response = await fetch(`/api/files/${file.id}`, {
         headers: {
