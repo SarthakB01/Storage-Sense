@@ -57,7 +57,7 @@ file-storage-app/
 1. **Clone the repository**
    ```bash
    git clone https://github.com/SarthakB01/Storage-Sense
-   cd file-storage-app
+   cd Storage-Sense
    ```
 
 2. **Install dependencies**
@@ -69,7 +69,7 @@ file-storage-app/
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env
+  
    # Edit .env with your configuration, including CLOUDCONVERT_API_KEY
    ```
 
