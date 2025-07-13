@@ -86,6 +86,16 @@ export function DocumentConverter() {
         }),
       })
 
+      if (!response.jobId) {
+        toast({
+          title: "Conversion failed",
+          description: "Failed to start conversion (missing job id)",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
+      }
+
       const newJob: ConversionJob = {
         id: response.jobId,
         sourceFileName: files.find((f) => f.id === selectedFile)?.originalName || "Unknown",
@@ -99,7 +109,7 @@ export function DocumentConverter() {
       setJobs((prev) => [newJob, ...prev])
       setActiveTab("history")
 
-      // Poll for job status
+      // Poll for job status only if jobId is valid
       pollJobStatus(response.jobId)
 
       toast({
@@ -122,6 +132,14 @@ export function DocumentConverter() {
   }
 
   const pollJobStatus = async (jobId: string) => {
+    if (!jobId) {
+      toast({
+        title: "Polling error",
+        description: "Missing job id for polling.",
+        variant: "destructive",
+      })
+      return
+    }
     const pollInterval = setInterval(async () => {
       try {
         const response = await apiCall(`/api/convert/${jobId}`)
@@ -155,9 +173,19 @@ export function DocumentConverter() {
             })
           }
         }
-      } catch (error) {
-        console.error("Failed to poll job status:", error)
-        clearInterval(pollInterval)
+      } catch (error: any) {
+        // If error is 400 or 404, stop polling and show error
+        if (error?.status === 400 || error?.status === 404) {
+          clearInterval(pollInterval)
+          toast({
+            title: "Polling error",
+            description: "Conversion job not found or invalid job id.",
+            variant: "destructive",
+          })
+        } else {
+          console.error("Failed to poll job status:", error)
+          clearInterval(pollInterval)
+        }
       }
     }, 2000) // Poll every 2 seconds
   }
