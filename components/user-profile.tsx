@@ -91,7 +91,7 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
 
   const { apiCall } = useApi()
   const { toast } = useToast()
-  const { user: authUser, setUser } = useAuth()
+  const { user: authUser, token, setUser } = useAuth()
 
   useEffect(() => {
     loadProfile()
@@ -335,9 +335,7 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
       const res = await fetch("/api/files", {
         method: "POST",
         body: formData,
-        headers: {
-          Authorization: `Bearer ${authUser?.token || ""}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       const data = await res.json()
       if (data.file?.path) {
