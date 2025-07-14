@@ -15,18 +15,27 @@ const updateSettingsSchema = z.object({
  */
 export const GET = withAuth(async (request: NextRequest, user) => {
   try {
-    const settings = await db.userSettings.findUnique({
+    console.log("Fetching settings for user:", user.userId)
+
+    let settings = await db.userSettings.findUnique({
       where: { userId: user.userId },
     })
 
     if (!settings) {
+      console.log("No settings found, creating default settings")
       // Create default settings if they don't exist
-      const defaultSettings = await db.userSettings.create({
-        data: { userId: user.userId },
+      settings = await db.userSettings.create({
+        data: {
+          userId: user.userId,
+          emailNotifications: true,
+          pushNotifications: false,
+          uploadNotifications: true,
+          conversionNotifications: true,
+        },
       })
-      return NextResponse.json({ settings: defaultSettings })
     }
 
+    console.log("Settings fetched successfully:", settings)
     return NextResponse.json({ settings })
   } catch (error) {
     console.error("Error fetching user settings:", error)
@@ -40,17 +49,24 @@ export const GET = withAuth(async (request: NextRequest, user) => {
 export const PUT = withAuth(async (request: NextRequest, user) => {
   try {
     const body = await request.json()
+    console.log("Settings update request for user:", user.userId, body)
+
     const validatedData = updateSettingsSchema.parse(body)
+    console.log("Validated settings data:", validatedData)
 
     const updatedSettings = await db.userSettings.upsert({
       where: { userId: user.userId },
       update: validatedData,
       create: {
         userId: user.userId,
-        ...validatedData,
+        emailNotifications: validatedData.emailNotifications ?? true,
+        pushNotifications: validatedData.pushNotifications ?? false,
+        uploadNotifications: validatedData.uploadNotifications ?? true,
+        conversionNotifications: validatedData.conversionNotifications ?? true,
       },
     })
 
+    console.log("Settings updated successfully:", updatedSettings)
     return NextResponse.json({ settings: updatedSettings })
   } catch (error) {
     console.error("Error updating user settings:", error)

@@ -73,7 +73,8 @@ export function DocumentConverter() {
           file.mimeType.includes("text") ||
           file.mimeType.includes("image") ||
           file.mimeType.includes("spreadsheet") ||
-          file.mimeType.includes("presentation"),
+          file.mimeType.includes("presentation") ||
+          file.mimeType.includes("oasis"),
       )
       setFiles(convertibleFiles)
     } catch (error) {
@@ -125,7 +126,7 @@ export function DocumentConverter() {
         sourceFileName: selectedFileObj?.originalName || "Unknown",
         sourceFormat: getFileExtension(selectedFileObj?.originalName || "").toUpperCase(),
         targetFormat: targetFormat.toUpperCase(),
-        progress: 0,
+        progress: response.progress || 0,
         status: "PROCESSING",
         createdAt: new Date().toISOString(),
       }
@@ -172,25 +173,34 @@ export function DocumentConverter() {
     const pollInterval = setInterval(async () => {
       try {
         console.log("Polling job status for:", jobId)
-        const response = await apiCall(`/api/convert/${jobId}`)
+        const response = await fetch(`/api/convert/${jobId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
 
-        console.log("Job status response:", response)
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log("Job status response:", data)
 
         setJobs((prev) =>
           prev.map((job) =>
             job.id === jobId
               ? {
                   ...job,
-                  status: response.status,
-                  progress: response.progress || 0,
-                  error: response.error,
-                  resultFileName: response.resultFileName,
+                  status: data.status,
+                  progress: data.progress || 0,
+                  error: data.error,
+                  resultFileName: data.resultFileName,
                 }
               : job,
           ),
         )
 
-        if (response.status === "COMPLETED" || response.status === "FAILED") {
+        if (data.status === "COMPLETED" || data.status === "FAILED") {
           clearInterval((window as any).conversionIntervals[jobId])
           delete (window as any).conversionIntervals[jobId]
           setPollingJobs((prev) => {
@@ -199,7 +209,7 @@ export function DocumentConverter() {
             return newSet
           })
 
-          if (response.status === "COMPLETED") {
+          if (data.status === "COMPLETED") {
             toast({
               title: "Conversion completed",
               description: "Your document has been converted successfully!",
@@ -207,7 +217,7 @@ export function DocumentConverter() {
           } else {
             toast({
               title: "Conversion failed",
-              description: response.error || "The conversion process failed",
+              description: data.error || "The conversion process failed",
               variant: "destructive",
             })
           }
@@ -375,7 +385,7 @@ export function DocumentConverter() {
           <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm border-slate-200 dark:border-slate-800">
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600">
+                <div className="p-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600">
                   <RefreshCw className="w-5 h-5 text-white" />
                 </div>
                 Convert Document
@@ -399,7 +409,7 @@ export function DocumentConverter() {
                         files.map((file) => (
                           <SelectItem key={file.id} value={file.id}>
                             <div className="flex items-center justify-between w-full">
-                              <span>{file.originalName}</span>
+                              <span className="truncate max-w-xs">{file.originalName}</span>
                               <span className="text-xs text-muted-foreground ml-2">{formatFileSize(file.size)}</span>
                             </div>
                           </SelectItem>
@@ -429,7 +439,7 @@ export function DocumentConverter() {
               <Button
                 onClick={startConversion}
                 disabled={!selectedFile || !targetFormat || loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
               >
                 {loading ? (
                   <>
@@ -515,7 +525,7 @@ export function DocumentConverter() {
                           <Button
                             size="sm"
                             onClick={() => downloadConvertedFile(job.id)}
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
                           >
                             <Download className="w-3 h-3 mr-1" />
                             Download

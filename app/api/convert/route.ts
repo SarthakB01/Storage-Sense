@@ -10,14 +10,19 @@ import fs from "fs/promises"
  */
 export const POST = withAuth(async (request: NextRequest, user) => {
   try {
-    const { fileId, targetFormat } = await request.json()
+    const body = await request.json()
+    console.log("Convert API received body:", body)
+
+    const { fileId, targetFormat } = body
 
     if (!fileId || !targetFormat) {
+      console.log("Missing required fields:", { fileId, targetFormat })
       return NextResponse.json({ error: "File ID and target format are required" }, { status: 400 })
     }
 
     // Check if CloudConvert API key is configured
     if (!process.env.CLOUDCONVERT_API_KEY) {
+      console.log("CloudConvert API key not configured")
       return NextResponse.json(
         {
           error: "CloudConvert API key not configured. Please add CLOUDCONVERT_API_KEY to your environment variables.",
@@ -35,13 +40,18 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     })
 
     if (!sourceFile) {
+      console.log("Source file not found:", fileId)
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
+
+    console.log("Found source file:", sourceFile.originalName)
 
     // Check if source file exists on disk
     try {
       await fs.access(sourceFile.path)
+      console.log("Source file exists on disk:", sourceFile.path)
     } catch {
+      console.log("Source file not found on disk:", sourceFile.path)
       return NextResponse.json({ error: "Source file not found on disk" }, { status: 404 })
     }
 
@@ -78,11 +88,16 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       },
     )
 
-    return NextResponse.json({
+    // Return the job ID immediately
+    const response = {
       jobId: conversionJob.id,
       status: "PROCESSING",
       message: "Conversion started successfully with CloudConvert",
-    })
+      progress: 10,
+    }
+
+    console.log("Returning response:", response)
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Error starting conversion:", error)
     return NextResponse.json(

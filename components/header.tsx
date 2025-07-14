@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useTheme } from "next-themes"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useAuth } from "@/contexts/auth-context"
 
 interface HeaderProps {
   user: {
@@ -25,15 +26,23 @@ interface HeaderProps {
   }
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user: initialUser }: HeaderProps) {
   const { theme, setTheme } = useTheme()
+  const { user: authUser, logout } = useAuth()
   const [notifications] = useState([
     { id: 1, title: "File uploaded successfully", time: "2 min ago", unread: true },
     { id: 2, title: "Document conversion completed", time: "5 min ago", unread: true },
     { id: 3, title: "Storage optimization suggestion", time: "1 hour ago", unread: false },
   ])
 
+  // Use auth user data if available, fallback to initial user
+  const currentUser = authUser || initialUser
+
   const unreadCount = notifications.filter((n) => n.unread).length
+
+  const handleLogout = () => {
+    logout()
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
@@ -100,9 +109,9 @@ export function Header({ user }: HeaderProps) {
                 className="relative h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                  <AvatarImage src={currentUser.avatar || "/placeholder.svg"} alt={currentUser.name} />
                   <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                    {user.name
+                    {currentUser.name
                       .split(" ")
                       .map((n) => n[0])
                       .join("")}
@@ -113,8 +122,8 @@ export function Header({ user }: HeaderProps) {
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -127,7 +136,7 @@ export function Header({ user }: HeaderProps) {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-red-600 dark:text-red-400">
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 dark:text-red-400">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>

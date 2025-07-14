@@ -18,6 +18,8 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  Calendar,
+  HardDrive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -42,6 +44,7 @@ interface FileItem {
 
 export function FileStorage() {
   const [files, setFiles] = useState<FileItem[]>([])
+  const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null)
@@ -55,7 +58,17 @@ export function FileStorage() {
 
   useEffect(() => {
     loadFiles()
-  }, [searchQuery])
+  }, [])
+
+  useEffect(() => {
+    // Filter files based on search query
+    if (searchQuery.trim() === "") {
+      setFilteredFiles(files)
+    } else {
+      const filtered = files.filter((file) => file.originalName.toLowerCase().includes(searchQuery.toLowerCase()))
+      setFilteredFiles(filtered)
+    }
+  }, [files, searchQuery])
 
   useEffect(() => {
     // Cleanup preview URL when dialog closes
@@ -70,10 +83,7 @@ export function FileStorage() {
   const loadFiles = async () => {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (searchQuery) params.append("search", searchQuery)
-
-      const response = await apiCall(`/api/files?${params.toString()}`)
+      const response = await apiCall("/api/files")
       setFiles(response.files || [])
     } catch (error) {
       console.error("Failed to load files:", error)
@@ -329,6 +339,171 @@ export function FileStorage() {
     )
   }
 
+  const renderGridView = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {filteredFiles.map((file) => {
+        const FileIcon = getFileIcon(file.mimeType)
+        const { color, bg } = getFileColor(file.mimeType)
+        const previewable = canPreview(file.mimeType)
+
+        return (
+          <Card
+            key={file.id}
+            className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`p-3 rounded-xl ${bg} transition-transform group-hover:scale-110`}>
+                  <FileIcon className={`w-6 h-6 ${color}`} />
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {previewable && (
+                      <DropdownMenuItem onClick={() => handlePreview(file)} className="cursor-pointer">
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => handleDownload(file)} className="cursor-pointer">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDelete(file)} className="cursor-pointer text-red-600">
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  {file.originalName}
+                </h3>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatFileSize(file.size)}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {getFileType(file.mimeType)}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">{formatDate(file.createdAt)}</p>
+              </div>
+
+              <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                {previewable && (
+                  <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="flex-1">
+                    <Eye className="w-3 h-3 mr-1" />
+                    Preview
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => handleDownload(file)}
+                  className={`${previewable ? "flex-1" : "w-full"} bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700`}
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Download
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  )
+
+  const renderListView = () => (
+    <div className="space-y-2">
+      {filteredFiles.map((file) => {
+        const FileIcon = getFileIcon(file.mimeType)
+        const { color } = getFileColor(file.mimeType)
+        const previewable = canPreview(file.mimeType)
+
+        return (
+          <Card
+            key={file.id}
+            className="group hover:shadow-md transition-all duration-200 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <FileIcon className={`w-8 h-8 ${color} flex-shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      {file.originalName}
+                    </h3>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+                      <span className="flex items-center gap-1">
+                        <HardDrive className="w-3 h-3" />
+                        {formatFileSize(file.size)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(file.createdAt)}
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        {getFileType(file.mimeType)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {previewable && (
+                    <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                      <Eye className="w-3 h-3 mr-1" />
+                      Preview
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownload(file)}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Download
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {previewable && (
+                        <DropdownMenuItem onClick={() => handlePreview(file)} className="cursor-pointer">
+                          <Eye className="mr-2 h-4 w-4" />
+                          Preview
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => handleDownload(file)} className="cursor-pointer">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(file)} className="cursor-pointer text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -350,9 +525,11 @@ export function FileStorage() {
             My Files
           </h1>
           <p className="text-muted-foreground mt-1">
-            {files.length === 0
-              ? "No files uploaded yet"
-              : `${files.length} file${files.length !== 1 ? "s" : ""} stored`}
+            {filteredFiles.length === 0 && searchQuery
+              ? `No files found for "${searchQuery}"`
+              : filteredFiles.length === 0
+                ? "No files uploaded yet"
+                : `${filteredFiles.length} file${filteredFiles.length !== 1 ? "s" : ""} ${searchQuery ? `found for "${searchQuery}"` : "stored"}`}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -382,7 +559,7 @@ export function FileStorage() {
         </div>
       </div>
 
-      {files.length === 0 ? (
+      {filteredFiles.length === 0 && !searchQuery ? (
         <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <FileText className="w-16 h-16 text-slate-400 mb-4" />
@@ -395,86 +572,21 @@ export function FileStorage() {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredFiles.length === 0 && searchQuery ? (
+        <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <FileText className="w-16 h-16 text-slate-400 mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No files found</h3>
+            <p className="text-muted-foreground text-center mb-4">No files match your search for "{searchQuery}"</p>
+            <Button variant="outline" onClick={() => setSearchQuery("")}>
+              Clear Search
+            </Button>
+          </CardContent>
+        </Card>
+      ) : viewMode === "grid" ? (
+        renderGridView()
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {files.map((file) => {
-            const FileIcon = getFileIcon(file.mimeType)
-            const { color, bg } = getFileColor(file.mimeType)
-            const previewable = canPreview(file.mimeType)
-
-            return (
-              <Card
-                key={file.id}
-                className="group hover:shadow-lg transition-all duration-300 border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`p-3 rounded-xl ${bg} transition-transform group-hover:scale-110`}>
-                      <FileIcon className={`w-6 h-6 ${color}`} />
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {previewable && (
-                          <DropdownMenuItem onClick={() => handlePreview(file)} className="cursor-pointer">
-                            <Eye className="mr-2 h-4 w-4" />
-                            Preview
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleDownload(file)} className="cursor-pointer">
-                          <Download className="mr-2 h-4 w-4" />
-                          Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(file)} className="cursor-pointer text-red-600">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="space-y-2">
-                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      {file.originalName}
-                    </h3>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{formatFileSize(file.size)}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {getFileType(file.mimeType)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{formatDate(file.createdAt)}</p>
-                  </div>
-
-                  <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {previewable && (
-                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="flex-1">
-                        <Eye className="w-3 h-3 mr-1" />
-                        Preview
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => handleDownload(file)}
-                      className={`${previewable ? "flex-1" : "w-full"} bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700`}
-                    >
-                      <Download className="w-3 h-3 mr-1" />
-                      Download
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        renderListView()
       )}
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

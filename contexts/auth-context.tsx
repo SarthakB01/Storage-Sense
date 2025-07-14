@@ -16,13 +16,14 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
+  setUser: (user: User) => void
   loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUserState] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -33,11 +34,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (storedToken && storedUser) {
       setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      setUserState(JSON.parse(storedUser))
     }
 
     setLoading(false)
   }, [])
+
+  const setUser = (newUser: User) => {
+    setUserState(newUser)
+    localStorage.setItem("auth_user", JSON.stringify(newUser))
+  }
 
   const login = async (email: string, password: string) => {
     const response = await fetch("/api/auth/login", {
@@ -53,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { user, token } = await response.json()
 
-    setUser(user)
+    setUserState(user)
     setToken(token)
     localStorage.setItem("auth_token", token)
     localStorage.setItem("auth_user", JSON.stringify(user))
@@ -73,14 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { user, token } = await response.json()
 
-    setUser(user)
+    setUserState(user)
     setToken(token)
     localStorage.setItem("auth_token", token)
     localStorage.setItem("auth_user", JSON.stringify(user))
   }
 
   const logout = () => {
-    setUser(null)
+    setUserState(null)
     setToken(null)
     localStorage.removeItem("auth_token")
     localStorage.removeItem("auth_user")
@@ -94,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        setUser,
         loading,
       }}
     >

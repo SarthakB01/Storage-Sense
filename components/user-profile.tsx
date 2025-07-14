@@ -1,7 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Shield, Bell, HardDrive, TrendingUp, FileText, ImageIcon, Video, Music, Archive } from "lucide-react"
+import {
+  User,
+  Shield,
+  Bell,
+  HardDrive,
+  TrendingUp,
+  FileText,
+  ImageIcon,
+  Video,
+  Music,
+  Archive,
+  Camera,
+  Eye,
+  EyeOff,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,6 +26,8 @@ import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useApi } from "@/hooks/use-api"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 
 interface UserProfileProps {
   user: {
@@ -19,6 +35,21 @@ interface UserProfileProps {
     email: string
     avatar: string
   }
+}
+
+interface UserProfile {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  createdAt: string
+}
+
+interface UserSettings {
+  emailNotifications: boolean
+  pushNotifications: boolean
+  uploadNotifications: boolean
+  conversionNotifications: boolean
 }
 
 interface StorageInfo {
@@ -37,19 +68,73 @@ interface StorageInfo {
   recentUsage: number
 }
 
-export function UserProfile({ user }: UserProfileProps) {
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    uploads: true,
-    conversions: true,
+export function UserProfile({ user: initialUser }: UserProfileProps) {
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [settings, setSettings] = useState<UserSettings>({
+    emailNotifications: true,
+    pushNotifications: false,
+    uploadNotifications: true,
+    conversionNotifications: true,
   })
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
+
+  // Form states
+  const [name, setName] = useState("")
+  const [avatar, setAvatar] = useState("")
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPasswords, setShowPasswords] = useState(false)
+
   const { apiCall } = useApi()
+  const { toast } = useToast()
+  const { user: authUser, setUser } = useAuth()
 
   useEffect(() => {
+    loadProfile()
+    loadSettings()
     loadStorageInfo()
   }, [])
+
+  const loadProfile = async () => {
+    try {
+      setProfileLoading(true)
+      console.log("Loading user profile...")
+      const response = await apiCall("/api/user/profile")
+      console.log("Profile loaded:", response)
+
+      setProfile(response.user)
+      setName(response.user.name)
+      setAvatar(response.user.avatar || "")
+    } catch (error) {
+      console.error("Failed to load profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load user profile. Please refresh the page.",
+        variant: "destructive",
+      })
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  const loadSettings = async () => {
+    try {
+      console.log("Loading user settings...")
+      const response = await apiCall("/api/user/settings")
+      console.log("Settings loaded:", response)
+      setSettings(response.settings)
+    } catch (error) {
+      console.error("Failed to load settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load settings. Using defaults.",
+        variant: "destructive",
+      })
+    }
+  }
 
   const loadStorageInfo = async () => {
     try {
@@ -58,6 +143,142 @@ export function UserProfile({ user }: UserProfileProps) {
     } catch (error) {
       console.error("Failed to load storage info:", error)
     }
+  }
+
+  const saveProfile = async () => {
+    if (!name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      console.log("Saving profile:", { name, avatar })
+      const response = await apiCall("/api/user/profile", {
+        method: "PUT",
+        body: JSON.stringify({ name: name.trim(), avatar: avatar.trim() || null }),
+      })
+
+      console.log("Profile saved:", response)
+      setProfile(response.user)
+
+      // Update auth context with new user data
+      if (setUser) {
+        setUser({
+          ...authUser!,
+          name: response.user.name,
+          avatar: response.user.avatar || "",
+        })
+      }
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      })
+    } catch (error) {
+      console.error("Failed to save profile:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const changePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "All password fields are required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Validation Error",
+        description: "New passwords don't match",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Validation Error",
+        description: "New password must be at least 8 characters",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      console.log("Changing password...")
+      await apiCall("/api/user/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      })
+
+      toast({
+        title: "Password changed",
+        description: "Your password has been updated successfully.",
+      })
+
+      // Clear password fields
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (error) {
+      console.error("Failed to change password:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to change password",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveSettings = async () => {
+    setLoading(true)
+    try {
+      console.log("Saving settings:", settings)
+      const response = await apiCall("/api/user/settings", {
+        method: "PUT",
+        body: JSON.stringify(settings),
+      })
+
+      console.log("Settings saved:", response)
+      toast({
+        title: "Settings saved",
+        description: "Your preferences have been updated successfully.",
+      })
+    } catch (error) {
+      console.error("Failed to save settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateSetting = (key: keyof UserSettings, value: boolean) => {
+    setSettings((prev) => ({ ...prev, [key]: value }))
   }
 
   const formatBytes = (bytes: number) => {
@@ -102,6 +323,19 @@ export function UserProfile({ user }: UserProfileProps) {
     }
   }
 
+  if (profileLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -122,20 +356,31 @@ export function UserProfile({ user }: UserProfileProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
-                <Avatar className="w-20 h-20">
-                  <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-xl">
-                    {user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="w-20 h-20">
+                    <AvatarImage src={avatar || profile?.avatar || "/placeholder.svg"} alt={name || profile?.name} />
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-xl">
+                      {(name || profile?.name || "U")
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-full">
+                    <Camera className="w-3 h-3 text-white" />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">
-                    Change Avatar
-                  </Button>
-                  <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 2MB.</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="avatar">Profile Picture URL</Label>
+                    <Input
+                      id="avatar"
+                      placeholder="https://example.com/avatar.jpg"
+                      value={avatar}
+                      onChange={(e) => setAvatar(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Enter a URL for your profile picture</p>
                 </div>
               </div>
 
@@ -144,16 +389,88 @@ export function UserProfile({ user }: UserProfileProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue={user.name} />
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" type="email" defaultValue={user.email} />
+                  <Input id="email" type="email" value={profile?.email || ""} disabled />
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
                 </div>
               </div>
 
-              <Button className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
-                Save Changes
+              <Button
+                onClick={saveProfile}
+                disabled={loading}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Change Password
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <div className="relative">
+                  <Input
+                    id="current-password"
+                    type={showPasswords ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                  >
+                    {showPasswords ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type={showPasswords ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type={showPasswords ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                />
+              </div>
+
+              <Button
+                onClick={changePassword}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              >
+                {loading ? "Changing Password..." : "Change Password"}
               </Button>
             </CardContent>
           </Card>
@@ -172,8 +489,8 @@ export function UserProfile({ user }: UserProfileProps) {
                   <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                 </div>
                 <Switch
-                  checked={notifications.email}
-                  onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, email: checked }))}
+                  checked={settings.emailNotifications}
+                  onCheckedChange={(checked) => updateSetting("emailNotifications", checked)}
                 />
               </div>
 
@@ -183,8 +500,8 @@ export function UserProfile({ user }: UserProfileProps) {
                   <p className="text-sm text-muted-foreground">Receive push notifications in browser</p>
                 </div>
                 <Switch
-                  checked={notifications.push}
-                  onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, push: checked }))}
+                  checked={settings.pushNotifications}
+                  onCheckedChange={(checked) => updateSetting("pushNotifications", checked)}
                 />
               </div>
 
@@ -194,8 +511,8 @@ export function UserProfile({ user }: UserProfileProps) {
                   <p className="text-sm text-muted-foreground">Get notified when uploads complete</p>
                 </div>
                 <Switch
-                  checked={notifications.uploads}
-                  onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, uploads: checked }))}
+                  checked={settings.uploadNotifications}
+                  onCheckedChange={(checked) => updateSetting("uploadNotifications", checked)}
                 />
               </div>
 
@@ -205,10 +522,18 @@ export function UserProfile({ user }: UserProfileProps) {
                   <p className="text-sm text-muted-foreground">Get notified when conversions finish</p>
                 </div>
                 <Switch
-                  checked={notifications.conversions}
-                  onCheckedChange={(checked) => setNotifications((prev) => ({ ...prev, conversions: checked }))}
+                  checked={settings.conversionNotifications}
+                  onCheckedChange={(checked) => updateSetting("conversionNotifications", checked)}
                 />
               </div>
+
+              <Button
+                onClick={saveSettings}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+              >
+                {loading ? "Saving..." : "Save Settings"}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -307,26 +632,6 @@ export function UserProfile({ user }: UserProfileProps) {
               </CardContent>
             </Card>
           )}
-
-          <Card className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Account Security
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full bg-transparent">
-                Change Password
-              </Button>
-              <Button variant="outline" className="w-full bg-transparent">
-                Two-Factor Authentication
-              </Button>
-              <Button variant="outline" className="w-full bg-transparent">
-                Download Data
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

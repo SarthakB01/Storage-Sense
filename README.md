@@ -136,10 +136,7 @@ file-storage-app/
 
 ---
 
-## 🚀 Deployment
 
-- See the original README for production build and deployment steps.
-- **Note:** You do NOT need LibreOffice for conversion; all conversions are handled via CloudConvert API.
 
 ---
 
@@ -149,8 +146,4 @@ file-storage-app/
 - **Issues:** GitHub Issues
 - **Email:** support@storagesense.com
 
----
 
-## 🎯 Roadmap
-
-- File sharing, collaboration, advanced analytics, mobile app, and more (see original roadmap).
