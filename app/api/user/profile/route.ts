@@ -6,7 +6,7 @@ import { z } from "zod"
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").optional(),
-  avatar: z.string().url("Invalid avatar URL").optional().or(z.literal("")),
+  avatar: z.string().url("Invalid avatar URL").or(z.literal("")).nullable().optional(),
 })
 
 const changePasswordSchema = z.object({
@@ -35,7 +35,19 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user: userProfile })
+    // Convert BigInt fields in settings to string if present
+    let safeUserProfile = userProfile
+    if (userProfile.settings && typeof userProfile.settings.storageLimit === 'bigint') {
+      safeUserProfile = {
+        ...userProfile,
+        settings: {
+          ...userProfile.settings,
+          storageLimit: userProfile.settings.storageLimit.toString(),
+        } as typeof userProfile.settings & { storageLimit: string },
+      }
+    }
+
+    return NextResponse.json({ user: safeUserProfile })
   } catch (error) {
     console.error("Error fetching user profile:", error)
     return NextResponse.json({ error: "Failed to fetch user profile" }, { status: 500 })
@@ -83,7 +95,6 @@ export const PUT = withAuth(async (request: NextRequest, user) => {
     return NextResponse.json({ error: "Failed to update user profile" }, { status: 500 })
   }
 })
-
 /**
  * POST /api/user/profile/change-password - Change user password
  */
@@ -146,3 +157,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to change password" }, { status: 500 })
   }
 }
+

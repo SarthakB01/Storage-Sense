@@ -36,7 +36,9 @@ export const GET = withAuth(async (request: NextRequest, user) => {
     }
 
     console.log("Settings fetched successfully:", settings)
-    return NextResponse.json({ settings })
+    // Convert BigInt fields to string
+    const safeSettings = settings ? { ...settings, storageLimit: settings.storageLimit.toString() } : settings
+    return NextResponse.json({ settings: safeSettings })
   } catch (error) {
     console.error("Error fetching user settings:", error)
     return NextResponse.json({ error: "Failed to fetch user settings" }, { status: 500 })
@@ -67,7 +69,9 @@ export const PUT = withAuth(async (request: NextRequest, user) => {
     })
 
     console.log("Settings updated successfully:", updatedSettings)
-    return NextResponse.json({ settings: updatedSettings })
+    // Convert BigInt fields to string
+    const safeUpdatedSettings = updatedSettings ? { ...updatedSettings, storageLimit: updatedSettings.storageLimit.toString() } : updatedSettings
+    return NextResponse.json({ settings: safeUpdatedSettings })
   } catch (error) {
     console.error("Error updating user settings:", error)
 
