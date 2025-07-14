@@ -79,6 +79,7 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [profileLoading, setProfileLoading] = useState(true)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // Form states
   const [name, setName] = useState("")
@@ -323,6 +324,51 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
     }
   }
 
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("folder", "/avatars")
+      const res = await fetch("/api/files", {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${authUser?.token || ""}`,
+        },
+      })
+      const data = await res.json()
+      if (data.file?.path) {
+        setAvatar(data.file.path)
+        // Update user profile with new avatar URL
+        await apiCall("/api/user/profile", {
+          method: "PUT",
+          body: JSON.stringify({ avatar: data.file.path }),
+        })
+        toast({
+          title: "Profile picture updated",
+          description: "Your profile picture has been updated.",
+        })
+      } else {
+        toast({
+          title: "Upload failed",
+          description: data.error || "Failed to upload avatar.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload avatar.",
+        variant: "destructive",
+      })
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
   if (profileLoading) {
     return (
       <div className="space-y-6">
@@ -366,9 +412,21 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-full">
+                  <label className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-full cursor-pointer" title="Upload new profile picture">
                     <Camera className="w-3 h-3 text-white" />
-                  </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarFileChange}
+                      disabled={avatarUploading}
+                    />
+                  </label>
+                  {avatarUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-black/40 rounded-full">
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-2">
