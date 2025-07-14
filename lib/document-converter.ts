@@ -2,6 +2,7 @@ import fs from "fs/promises"
 import path from "path"
 import FormData from "form-data"
 import fetch from "node-fetch"
+import { put } from "@vercel/blob"
 
 /**
  * Convert document using CloudConvert API
@@ -13,10 +14,6 @@ export async function convertDocumentWithCloudConvert(
 ): Promise<string> {
   try {
     console.log("Starting CloudConvert conversion:", { inputPath, outputFormat, originalFileName })
-
-    // Ensure output directory exists
-    const outputDir = path.join(process.env.UPLOAD_DIR || "./uploads", "conversions")
-    await fs.mkdir(outputDir, { recursive: true })
 
     const apiKey = process.env.CLOUDCONVERT_API_KEY
     if (!apiKey) {
@@ -96,6 +93,8 @@ export async function convertDocumentWithCloudConvert(
     let jobCompleted = false
     let attempts = 0
     const maxAttempts = 60 // 5 minutes max (5 second intervals)
+    let downloadUrl = ""
+    let outputFileName = ""
 
     while (!jobCompleted && attempts < maxAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 5000)) // Wait 5 seconds
@@ -124,26 +123,9 @@ export async function convertDocumentWithCloudConvert(
           throw new Error("No output file found in conversion result")
         }
 
-        const downloadUrl = exportTask.result.files[0].url
+        downloadUrl = exportTask.result.files[0].url
+        outputFileName = exportTask.result.files[0].filename || `${path.basename(originalFileName, path.extname(originalFileName))}_converted_${Date.now()}.${outputFormat.toLowerCase()}`
         console.log("Downloading converted file from:", downloadUrl)
-
-        const downloadResponse = await fetch(downloadUrl)
-        if (!downloadResponse.ok) {
-          throw new Error("Failed to download converted file")
-        }
-
-        const convertedBuffer = Buffer.from(await downloadResponse.arrayBuffer())
-
-        // Generate output filename
-        const baseName = path.basename(originalFileName, path.extname(originalFileName))
-        const outputFileName = `${baseName}_converted_${Date.now()}.${outputFormat.toLowerCase()}`
-        const outputPath = path.join(outputDir, outputFileName)
-
-        // Save the converted file
-        await fs.writeFile(outputPath, convertedBuffer)
-
-        console.log("CloudConvert conversion completed successfully:", outputPath)
-        return outputPath
       } else if (statusData.data.status === "error") {
         const errorTask = statusData.data.tasks.find((task: any) => task.status === "error")
         const errorMessage = errorTask ? errorTask.message : "Unknown conversion error"
@@ -155,7 +137,17 @@ export async function convertDocumentWithCloudConvert(
       throw new Error("CloudConvert conversion timed out")
     }
 
-    throw new Error("Unexpected end of conversion process")
+    // Download the converted file to buffer
+    const downloadResponse = await fetch(downloadUrl)
+    if (!downloadResponse.ok) {
+      throw new Error("Failed to download converted file")
+    }
+    const convertedBuffer = Buffer.from(await downloadResponse.arrayBuffer())
+
+    // Upload to Vercel Blob
+    const blob = await put(outputFileName, new Blob([convertedBuffer]), { access: "public" })
+    console.log("CloudConvert conversion completed successfully, Blob URL:", blob.url)
+    return blob.url
   } catch (error) {
     console.error("CloudConvert conversion error:", error)
     throw new Error(`CloudConvert conversion failed: ${error instanceof Error ? error.message : "Unknown error"}`)
