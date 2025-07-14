@@ -29,22 +29,13 @@ export const GET = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
-    // Check if file exists on disk
-    if (!fs.existsSync(file.path)) {
-      console.log("[API] Download: File not found on disk at path", file.path);
-      return NextResponse.json({ error: "File not found on disk" }, { status: 404 })
+    // If file.path is a Blob URL, redirect to it
+    if (file.path && file.path.startsWith("https://")) {
+      return NextResponse.redirect(file.path, 302);
     }
 
-    // Read file and return as response
-    const fileBuffer = fs.readFileSync(file.path)
-
-    return new NextResponse(fileBuffer, {
-      headers: {
-        "Content-Type": file.mimeType,
-        "Content-Disposition": `attachment; filename=\"${file.originalName}\"`,
-        "Content-Length": file.size.toString(),
-      },
-    })
+    // Legacy: If you still have local files, handle them here (optional)
+    return NextResponse.json({ error: "File not found on disk" }, { status: 404 })
   } catch (error) {
     console.error("Error downloading file:", error)
     return NextResponse.json({ error: "Failed to download file" }, { status: 500 })

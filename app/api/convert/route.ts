@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/auth"
 import { convertDocumentWithCloudConvert } from "@/lib/document-converter"
 import path from "path"
 import fs from "fs/promises"
+import { put } from "@vercel/blob"
 
 /**
  * POST /api/convert - Convert document using CloudConvert
@@ -144,13 +145,20 @@ async function processConversionWithCloudConvert(
     const baseName = path.basename(originalFileName, path.extname(originalFileName))
     const resultFileName = `${baseName}_converted.${fileExtension}`
 
-    // Update job with result
+    // Read the converted file from disk
+    const fs = await import("fs/promises")
+    const fileBuffer = await fs.readFile(resultPath)
+
+    // Upload to Vercel Blob
+    const blob = await put(resultFileName, new Blob([fileBuffer]), { access: "public" })
+
+    // Update job with result (store Blob URL)
     await db.conversionJob.update({
       where: { id: jobId },
       data: {
         status: "COMPLETED",
         progress: 100,
-        resultFilePath: resultPath,
+        resultFilePath: blob.url,
         resultFileName,
       },
     })

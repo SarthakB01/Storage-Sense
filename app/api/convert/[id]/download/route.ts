@@ -27,25 +27,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Converted file not found" }, { status: 404 })
     }
 
-    // Check if file exists on disk
-    if (!fs.existsSync(job.resultFilePath)) {
-      console.log("Converted file not found on disk:", job.resultFilePath)
-      return NextResponse.json({ error: "Converted file not found on disk" }, { status: 404 })
+    // If resultFilePath is a Blob URL, redirect to it
+    if (job.resultFilePath && job.resultFilePath.startsWith("https://")) {
+      return NextResponse.redirect(job.resultFilePath, 302);
     }
 
-    // Read file and return as response
-    const fileBuffer = fs.readFileSync(job.resultFilePath)
-    const mimeType = getMimeType(job.targetFormat)
-
-    console.log("Serving converted file:", job.resultFileName)
-
-    return new NextResponse(fileBuffer, {
-      headers: {
-        "Content-Type": mimeType,
-        "Content-Disposition": `attachment; filename="${job.resultFileName}"`,
-        "Content-Length": fileBuffer.length.toString(),
-      },
-    })
+    // Legacy: If you still have local files, handle them here (optional)
+    return NextResponse.json({ error: "Converted file not found on disk" }, { status: 404 })
   } catch (error) {
     console.error("Error downloading converted file:", error)
     return NextResponse.json({ error: "Failed to download converted file" }, { status: 500 })
