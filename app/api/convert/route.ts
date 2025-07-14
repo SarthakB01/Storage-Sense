@@ -5,6 +5,8 @@ import { convertDocumentWithCloudConvert } from "@/lib/document-converter"
 import path from "path"
 import fs from "fs/promises"
 import { put } from "@vercel/blob"
+import fetch from "node-fetch"
+import os from "os"
 
 /**
  * POST /api/convert - Convert document using CloudConvert
@@ -47,13 +49,14 @@ export const POST = withAuth(async (request: NextRequest, user) => {
 
     console.log("Found source file:", sourceFile.originalName)
 
-    // Check if source file exists on disk
+    // Download from Blob if needed
+    const localSourcePath = await getLocalFilePath(sourceFile.path, sourceFile.originalName)
     try {
-      await fs.access(sourceFile.path)
-      console.log("Source file exists on disk:", sourceFile.path)
+      await fs.access(localSourcePath)
+      console.log("Source file exists locally:", localSourcePath)
     } catch {
-      console.log("Source file not found on disk:", sourceFile.path)
-      return NextResponse.json({ error: "Source file not found on disk" }, { status: 404 })
+      console.log("Source file not found locally:", localSourcePath)
+      return NextResponse.json({ error: "Source file not found locally" }, { status: 404 })
     }
 
     // Create conversion job in database
@@ -72,7 +75,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
     console.log("Created conversion job:", conversionJob.id)
 
     // Start conversion process (in background)
-    processConversionWithCloudConvert(conversionJob.id, sourceFile.path, targetFormat, sourceFile.originalName).catch(
+    processConversionWithCloudConvert(conversionJob.id, localSourcePath, targetFormat, sourceFile.originalName).catch(
       (error) => {
         console.error("Background conversion process error:", error)
         // Update job status to failed
@@ -174,5 +177,19 @@ async function processConversionWithCloudConvert(
         progress: 0,
       },
     })
+  }
+}
+
+// Helper to get local file path from Blob URL or local path
+async function getLocalFilePath(filePathOrUrl: string, originalName: string): Promise<string> {
+  if (filePathOrUrl.startsWith("https://")) {
+    const res = await fetch(filePathOrUrl)
+    if (!res.ok) throw new Error("Failed to download file from Blob")
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const tempPath = path.join(os.tmpdir(), originalName)
+    await fs.writeFile(tempPath, buffer)
+    return tempPath
+  } else {
+    return filePathOrUrl
   }
 }
