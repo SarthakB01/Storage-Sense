@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/database"
 import { withAuth } from "@/lib/auth"
-import { saveFile, generateUniqueFilename } from "@/lib/file-storage"
+import { put } from "@vercel/blob"
 
 /**
  * GET /api/files - List user's files
@@ -82,9 +82,15 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: "Storage quota exceeded" }, { status: 400 })
     }
 
-    // Generate unique filename and save file
-    const filename = generateUniqueFilename(file.name)
-    const filePath = await saveFile(file, filename)
+    // Generate unique filename
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2)
+    const ext = file.name.split('.').pop() ? `.${file.name.split('.').pop()}` : ''
+    const name = file.name.replace(ext, '')
+    const filename = `${name}_${timestamp}_${random}${ext}`
+
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, { access: "public" })
 
     // Save file metadata to database
     const savedFile = await db.file.create({
@@ -94,7 +100,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
         originalName: file.name,
         mimeType: file.type,
         size: file.size,
-        path: filePath,
+        path: blob.url, // Store blob URL
         folder,
       },
       select: {
@@ -105,6 +111,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
         size: true,
         folder: true,
         createdAt: true,
+        path: true,
       },
     })
 
