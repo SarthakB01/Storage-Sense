@@ -402,31 +402,37 @@ export function UserProfile({ user: initialUser }: UserProfileProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar className="w-20 h-20">
+                <div className="relative flex flex-col items-center">
+                  <Avatar className="w-32 h-32">
                     <AvatarImage src={avatar || profile?.avatar || "/placeholder.svg"} alt={name || profile?.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-xl">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-3xl">
                       {(name || profile?.name || "U")
                         .split(" ")
                         .map((n) => n[0])
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
-                  <label className="absolute -bottom-1 -right-1 p-1 bg-emerald-500 rounded-full cursor-pointer" title="Upload new profile picture">
-                    <Camera className="w-3 h-3 text-white" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarFileChange}
-                      disabled={avatarUploading}
-                    />
-                  </label>
+                  <input
+                    id="avatar-upload-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileChange}
+                    disabled={avatarUploading}
+                  />
                   {avatarUploading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-black/40 rounded-full">
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
+                  <button
+                    type="button"
+                    className="mt-2 px-2 py-1 text-xs bg-emerald-500 hover:bg-emerald-600 text-white rounded font-normal"
+                    onClick={() => document.getElementById('avatar-upload-input')?.click()}
+                    disabled={avatarUploading}
+                  >
+                    Change Photo
+                  </button>
                 </div>
                 <div className="space-y-2">
                   <div className="space-y-2">
