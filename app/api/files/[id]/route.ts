@@ -63,8 +63,9 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
-    // Delete file from disk
-    await deleteFile(file.path)
+    // TODO: Optionally delete from Vercel Blob if needed
+    // Remove local file delete logic
+    // await deleteFile(file.path)
 
     // Delete file record from database
     await db.file.delete({
