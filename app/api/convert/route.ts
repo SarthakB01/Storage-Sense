@@ -133,9 +133,9 @@ async function processConversionWithCloudConvert(
     })
 
     // Perform conversion using CloudConvert
-    const resultPath = await convertDocumentWithCloudConvert(sourcePath, targetFormat, originalFileName)
+    const resultBlobUrl = await convertDocumentWithCloudConvert(sourcePath, targetFormat, originalFileName)
 
-    console.log("CloudConvert conversion completed, result path:", resultPath)
+    console.log("CloudConvert conversion completed, result blob URL:", resultBlobUrl)
 
     // Update progress to 75%
     await db.conversionJob.update({
@@ -148,20 +148,13 @@ async function processConversionWithCloudConvert(
     const baseName = path.basename(originalFileName, path.extname(originalFileName))
     const resultFileName = `${baseName}_converted.${fileExtension}`
 
-    // Read the converted file from disk
-    const fs = await import("fs/promises")
-    const fileBuffer = await fs.readFile(resultPath)
-
-    // Upload to Vercel Blob
-    const blob = await put(resultFileName, new Blob([fileBuffer]), { access: "public" })
-
     // Update job with result (store Blob URL)
     await db.conversionJob.update({
       where: { id: jobId },
       data: {
         status: "COMPLETED",
         progress: 100,
-        resultFilePath: blob.url,
+        resultFilePath: resultBlobUrl,
         resultFileName,
       },
     })

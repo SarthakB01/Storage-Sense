@@ -144,8 +144,11 @@ export async function convertDocumentWithCloudConvert(
     }
     const convertedBuffer = Buffer.from(await downloadResponse.arrayBuffer())
 
-    // Upload to Vercel Blob
-    const blob = await put(outputFileName, new Blob([convertedBuffer]), { access: "public" })
+    // Upload to Vercel Blob with unique filename
+    const blob = await put(outputFileName, new Blob([convertedBuffer]), { 
+      access: "public",
+      addRandomSuffix: true 
+    })
     console.log("CloudConvert conversion completed successfully, Blob URL:", blob.url)
     return blob.url
   } catch (error) {

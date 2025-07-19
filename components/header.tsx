@@ -49,13 +49,13 @@ export function Header({ user: initialUser }: HeaderProps) {
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="lg:hidden" />
-          <div className="relative max-w-md w-full">
+          {/* <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
               placeholder="Search files and documents..."
               className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
-          </div>
+          </div> */}
         </div>
 
         <div className="flex items-center gap-3">
