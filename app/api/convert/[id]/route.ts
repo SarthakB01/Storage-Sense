@@ -43,6 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       sourceFileName: job.sourceFileName,
       targetFormat: job.targetFormat,
       resultFileName: job.resultFileName,
+      resultFilePath: job.resultFilePath,
       createdAt: job.createdAt,
     })
   } catch (error) {

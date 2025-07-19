@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Download, RefreshCw, CheckCircle, AlertCircle, Upload } from "lucide-react"
+import { Download, RefreshCw, CheckCircle, AlertCircle, Upload, Cloud, HardDrive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -21,6 +21,7 @@ interface ConversionJob {
   error?: string
   createdAt: string
   resultFileName?: string
+  resultFilePath?: string
 }
 
 interface FileItem {
@@ -195,6 +196,7 @@ export function DocumentConverter() {
                   progress: data.progress || 0,
                   error: data.error,
                   resultFileName: data.resultFileName,
+                  resultFilePath: data.resultFilePath,
                 }
               : job,
           ),
@@ -272,6 +274,30 @@ export function DocumentConverter() {
       toast({
         title: "Download failed",
         description: "Failed to download converted file",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const saveToCloud = async (jobId: string) => {
+    try {
+      const response = await apiCall(`/api/convert/${jobId}/save-to-cloud`, {
+        method: "POST",
+      })
+
+      if (response.success) {
+        toast({
+          title: "File saved to cloud",
+          description: `${response.fileName} has been saved to your cloud storage.`,
+        })
+      } else {
+        throw new Error(response.error || "Failed to save to cloud")
+      }
+    } catch (error) {
+      console.error("Save to cloud error:", error)
+      toast({
+        title: "Save to cloud failed",
+        description: error instanceof Error ? error.message : "Failed to save file to cloud",
         variant: "destructive",
       })
     }
@@ -522,14 +548,25 @@ export function DocumentConverter() {
                         )}
 
                         {job.status === "COMPLETED" && (
-                          <Button
-                            size="sm"
-                            onClick={() => downloadConvertedFile(job.id)}
-                            className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
-                          >
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => downloadConvertedFile(job.id)}
+                              variant="outline"
+                              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/20"
+                            >
+                              <HardDrive className="w-3 h-3 mr-1" />
+                              Save to Device
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => saveToCloud(job.id)}
+                              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+                            >
+                              <Cloud className="w-3 h-3 mr-1" />
+                              Save to Cloud
+                            </Button>
+                          </div>
                         )}
 
                         {job.error && <p className="text-xs text-red-500">{job.error}</p>}
